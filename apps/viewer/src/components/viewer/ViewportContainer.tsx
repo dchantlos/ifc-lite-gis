@@ -20,8 +20,10 @@ import { openIfcFileDialog } from '@/services/file-dialog';
 import { logToDesktopTerminal } from '@/services/desktop-logger';
 import { cacheFileBlobs, formatFileSize, getCachedFile, getRecentFiles, recordRecentFiles, type RecentFileEntry } from '@/lib/recent-files';
 import { isTauri } from '@/lib/platform';
+import { toast } from '@/components/ui/toast';
+import { describeUnsupportedFormat } from '@/hooks/ingest/pointCloudIngest';
 import { Upload, MousePointer, Layers, Info, Command, AlertTriangle, ChevronDown, ExternalLink, Plus, Clock3 } from 'lucide-react';
-import type { MeshData, CoordinateInfo, GeometryResult } from '@ifc-lite/geometry';
+import type { MeshData, CoordinateInfo, GeometryResult, PointCloudAsset } from '@ifc-lite/geometry';
 import { type IfcDataStore } from '@ifc-lite/parser';
 import { getEffectiveGeoreference } from '@/lib/geo/effective-georef';
 
@@ -174,6 +176,30 @@ export function ViewportContainer() {
     return geometryResult;
   }, [storeModels, geometryResult, modelIdToIndex]);
 
+  /**
+   * Aggregate point clouds across visible models.
+   *
+   * Phase 0: identity-stamping with modelIndex. Returns the same array
+   * reference when nothing has changed so the consumer effect skips work.
+   */
+  const mergedPointClouds = useMemo(() => {
+    const collected: PointCloudAsset[] = [];
+    if (storeModels.size > 0) {
+      for (const [modelId, model] of storeModels) {
+        if (!model.visible) continue;
+        const assets = model.geometryResult?.pointClouds;
+        if (!assets || assets.length === 0) continue;
+        const modelIndex = modelIdToIndex.get(modelId) ?? 0;
+        for (const asset of assets) {
+          collected.push(asset.modelIndex === modelIndex ? asset : { ...asset, modelIndex });
+        }
+      }
+    } else if (geometryResult?.pointClouds) {
+      collected.push(...geometryResult.pointClouds);
+    }
+    return collected;
+  }, [storeModels, geometryResult, modelIdToIndex]);
+
   // Extract georeferencing info merged with any live mutations (for Cesium overlay).
   // Reacts to: model load, Cesium toggle, and every georef field edit.
   const georef = useMemo(() => {
@@ -281,12 +307,22 @@ export function ViewportContainer() {
       return;
     }
 
-    // Filter to supported files (IFC, IFCX, GLB)
-    const supportedFiles = Array.from(e.dataTransfer.files).filter(
+    // Filter to supported files (IFC, IFCX, GLB, point clouds)
+    const allDropped = Array.from(e.dataTransfer.files);
+    const supportedFiles = allDropped.filter(
       f => f.name.endsWith('.ifc') || f.name.endsWith('.ifcx') || f.name.endsWith('.glb')
+        || f.name.toLowerCase().endsWith('.las') || f.name.toLowerCase().endsWith('.laz') || f.name.toLowerCase().endsWith('.ply') || f.name.toLowerCase().endsWith('.pcd') || f.name.toLowerCase().endsWith('.e57')
     );
 
-    if (supportedFiles.length === 0) return;
+    if (supportedFiles.length === 0) {
+      // Tell the user *why* — common case is a Recap project / SketchUp
+      // file dropped because they assumed our viewer would understand it.
+      const explained = allDropped.find((f) => describeUnsupportedFormat(f.name));
+      if (explained) {
+        toast.error(`${explained.name}: ${describeUnsupportedFormat(explained.name)}`);
+      }
+      return;
+    }
 
     recordRecentFiles(supportedFiles.map((file) => ({ name: file.name, size: file.size })));
     void cacheFileBlobs(supportedFiles);
@@ -318,6 +354,7 @@ export function ViewportContainer() {
     // Filter to supported files (IFC, IFCX, GLB)
     const supportedFiles = Array.from(files).filter(
       f => f.name.endsWith('.ifc') || f.name.endsWith('.ifcx') || f.name.endsWith('.glb')
+        || f.name.toLowerCase().endsWith('.las') || f.name.toLowerCase().endsWith('.laz') || f.name.toLowerCase().endsWith('.ply') || f.name.toLowerCase().endsWith('.pcd') || f.name.toLowerCase().endsWith('.e57')
     );
 
     if (supportedFiles.length === 0) return;
@@ -529,7 +566,7 @@ export function ViewportContainer() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".ifc,.ifcx,.glb"
+          accept=".ifc,.ifcx,.glb,.las,.laz,.ply,.pcd,.e57"
           multiple
           onChange={handleFileSelect}
           className="hidden"
@@ -845,6 +882,7 @@ export function ViewportContainer() {
       <Viewport
         geometry={filteredGeometry}
         geometryVersion={geometryVersion}
+        pointClouds={mergedPointClouds}
         coordinateInfo={mergedGeometryResult?.coordinateInfo}
         computedIsolatedIds={computedIsolatedIds}
         modelIdToIndex={modelIdToIndex}
