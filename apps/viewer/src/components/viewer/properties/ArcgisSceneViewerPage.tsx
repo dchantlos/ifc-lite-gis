@@ -68,6 +68,12 @@ export function ArcgisSceneViewerPage() {
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
+      // Force global WGS84 mode so all layers and graphics share a
+      // consistent SR. Without this SceneView occasionally falls into a
+      // local/Web Mercator mode that breaks layerviews and rejects WGS84
+      // mesh graphics with "incompatible spatial reference".
+      viewingMode: 'global',
+      spatialReference: SpatialReference.WGS84,
       qualityProfile: 'high',
       environment: {
         lighting: {
