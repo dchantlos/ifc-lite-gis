@@ -89,6 +89,11 @@ export function ArcgisSceneViewerPage() {
     let disposed = false;
     view.when(() => {
       if (disposed) return;
+      console.info('[SceneViewerPage] view ready', {
+        viewingMode: view.viewingMode,
+        spatialReferenceWkid: view.spatialReference?.wkid,
+        basemap: scene.basemap?.title ?? scene.basemap?.id,
+      });
       const layerList = new LayerList({ view });
       view.ui.add(new Expand({ view, content: layerList, expanded: false, expandTooltip: 'Layers' }), 'top-right');
       view.ui.add(new Expand({
@@ -196,6 +201,10 @@ export function ArcgisSceneViewerPage() {
             type: 'mesh-3d',
             symbolLayers: [{ type: 'fill' }],
           } as any,
+        });
+        console.info('[SceneViewerPage] adding graphic', {
+          viewSR: view.spatialReference?.wkid,
+          meshSR: mesh.spatialReference?.wkid,
         });
         view.graphics.add(graphic);
         console.info('[SceneViewerPage] graphic added; total graphics:', view.graphics.length);
