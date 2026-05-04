@@ -732,7 +732,7 @@ export function ViewportContainer() {
             </div>
 
             <h2 className="text-3xl font-black tracking-tighter text-center mb-2 text-zinc-900 dark:text-[#a9b1d6]">
-              IFClite
+              IFClite + ArcGIS
             </h2>
             <p className="text-zinc-500 dark:text-[#565f89] font-mono text-sm text-center mb-8 border-b border-zinc-200 dark:border-[#3b4261] pb-4 w-full">
               IFC toolkit for the open web
