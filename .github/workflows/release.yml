@@ -10,6 +10,9 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   release:
     name: Release
+    # Only run on the upstream repo. Forks (e.g. dchantlos/ifc-lite-gis) don't
+    # publish to npm and the viewer build OOMs on default-sized runners here.
+    if: github.repository == 'louistrue/ifc-lite'
     runs-on: ubuntu-latest
     permissions:
       contents: write

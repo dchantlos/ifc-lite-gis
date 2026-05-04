@@ -22,6 +22,9 @@ concurrency:
 
 jobs:
   build:
+    # Skip on forks - the docs site is published only from the upstream repo,
+    # and forks use the deploy-pages.yml workflow for the viewer instead.
+    if: github.repository == 'louistrue/ifc-lite'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

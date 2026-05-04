@@ -29,6 +29,8 @@ env:
 jobs:
   docker:
     name: Build & Push Docker Image
+    # Skip on forks - only the upstream repo publishes images to ghcr.io.
+    if: github.repository == 'louistrue/ifc-lite'
     runs-on: ubuntu-latest
     permissions:
       contents: read

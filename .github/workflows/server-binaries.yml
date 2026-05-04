@@ -37,6 +37,8 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   validate-server-binaries:
     name: Validate Server Binary (${{ matrix.target }})
+    # Skip on forks - server binary release belongs to the upstream repo.
+    if: github.repository == 'louistrue/ifc-lite'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -128,7 +130,7 @@ jobs:
 
   release-server-binaries:
     name: Release Server Binary (${{ matrix.target }})
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    if: github.repository == 'louistrue/ifc-lite' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
