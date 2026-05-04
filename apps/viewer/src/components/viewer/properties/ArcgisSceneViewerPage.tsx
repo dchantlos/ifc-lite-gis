@@ -70,13 +70,12 @@ export function ArcgisSceneViewerPage() {
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
-      // Force global WGS84 mode so all layers and graphics share a
-      // consistent SR. Without an explicit spatialReference, SceneView
-      // sometimes falls into a local/Web Mercator mode that breaks
-      // layerviews (including the basemap's own tiles) and rejects WGS84
-      // mesh graphics with "incompatible spatial reference".
+      // `viewingMode: 'global'` is enough — the SDK then reprojects Web
+      // Mercator basemap/elevation tiles onto the WGS84 globe. Setting
+      // `spatialReference: SpatialReference.WGS84` explicitly here makes the
+      // SDK strictly reject any non-WGS84 layer with
+      // `layerview:spatial-reference-incompatible`.
       viewingMode: 'global',
-      spatialReference: SpatialReference.WGS84,
       qualityProfile: 'high',
       environment: {
         lighting: {

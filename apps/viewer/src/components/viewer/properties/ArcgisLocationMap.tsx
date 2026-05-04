@@ -142,11 +142,11 @@ export function ArcgisLocationMap({
       view = new SceneView({
         container: containerRef.current,
         map: scene,
-        // Force global WGS84 mode. Without this, SceneView sometimes
-        // defaults to a local viewing mode that rejects WGS84 graphics
-        // and basemap layers with "incompatible spatial reference".
+        // `viewingMode: 'global'` is enough — setting an explicit
+        // `spatialReference: SpatialReference.WGS84` makes the SDK
+        // strictly reject Web Mercator tile/elevation layers with
+        // `layerview:spatial-reference-incompatible`.
         viewingMode: 'global',
-        spatialReference: SpatialReference.WGS84,
         qualityProfile: 'low',
         ui: { components: [] },
         environment: {
