@@ -8,14 +8,23 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { Globe, MapPin, PenLine, Check, X, Search, ChevronRight, Mountain } from 'lucide-react';
+import * as React from 'react';
+import { Globe, MapPin, MapPinOff, PenLine, Check, X, Search, ChevronRight, Mountain } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { computeAngleToGridNorth, type GeoreferenceInfo, type MapConversion, type ProjectedCRS } from '@ifc-lite/parser';
+
+/** Optional site-anchor fallback (synthesised from IfcSite RefLat/RefLon). */
+export interface SiteAnchorLite {
+  lat: number;
+  lon: number;
+  elevation: number;
+}
 import { useViewerStore } from '@/store';
 import type { CoordinateInfo, GeometryResult } from '@ifc-lite/geometry';
 import { EpsgLookupDialog, type EpsgResult } from './EpsgLookupDialog';
-import { LocationMap, type PickedPosition } from './LocationMap';
+import { ArcgisLocationMap as LocationMap, type PickedPosition } from './ArcgisLocationMap';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { mergeMapConversion, mergeProjectedCRS } from '@/lib/geo/effective-georef';
 import { useIfc } from '@/hooks/useIfc';
 import { toast } from '@/components/ui/toast';
@@ -314,7 +323,7 @@ function AngleRow({ angle, editable, onAngleChange }: AngleRowProps) {
 // ── Main Panel ─────────────────────────────────────────────────────────
 
 export interface GeoreferencingPanelProps {
-  georef: GeoreferenceInfo | null;
+  georef: (GeoreferenceInfo & { siteAnchor?: SiteAnchorLite }) | null;
   modelId?: string;
   enableEditing?: boolean;
   schemaVersion?: string;
@@ -517,30 +526,67 @@ export function GeoreferencingPanel({ georef, modelId, enableEditing, schemaVers
   const hasData = mergedCRS || mergedConversion;
   const editable = enableEditing && !!modelId && supportsStandardGeoreferencing;
 
-  if (enableEditing && !supportsStandardGeoreferencing) {
+  // eslint-disable-next-line no-console
+  console.log('[GeorefPanel]', {
+    modelId,
+    schemaVersion,
+    enableEditing,
+    supportsStandardGeoreferencing,
+    hasMergedCRS: !!mergedCRS,
+    hasMergedConversion: !!mergedConversion,
+    hasGeoreference: georef?.hasGeoreference,
+    hasData: !!hasData,
+    editable,
+  });
+
+  if (enableEditing && !supportsStandardGeoreferencing && !hasData) {
     return (
-      <div className="px-2 py-1.5 flex items-center gap-2">
-        <Globe className="h-3 w-3 text-zinc-400" />
-        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-          Georeferencing editing requires IFC4 or newer. IFC2X3 does not support IfcProjectedCRS or IfcMapConversion.
-        </span>
+      <div className="mx-2 my-2 border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2.5">
+        <div className="flex items-start gap-2">
+          <MapPinOff className="h-3.5 w-3.5 text-zinc-500 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
+              This IFC is not georeferenced
+            </p>
+            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+              No <code className="font-mono">IfcMapConversion</code>, <code className="font-mono">IfcProjectedCRS</code>, or <code className="font-mono">IfcSite</code> coordinates were found.
+              Georeferencing editing requires IFC4 or newer; this file is IFC2X3.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // When no georef data exists, show "Add Georeferencing" in edit mode
+  // When no georef data exists, show a clear "not georeferenced" notice (and
+  // an "Add Georeferencing" button in edit mode for IFC4+).
   if (!hasData && !georef?.hasGeoreference) {
-    if (!editable) return null;
     return (
-      <div className="px-2 py-1.5 flex items-center gap-2">
-        <Globe className="h-3 w-3 text-teal-500" />
-        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 flex-1">No georeferencing</span>
-        <EpsgLookupDialog onSelect={handleEpsgSelect}>
-          <button className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition-colors px-1.5 py-0.5 border border-teal-300/50 dark:border-teal-700/50 hover:bg-teal-50 dark:hover:bg-teal-950/50">
-            <Globe className="h-2.5 w-2.5" />
-            Add Georeferencing
-          </button>
-        </EpsgLookupDialog>
+      <div className="mx-2 my-2 border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2.5">
+        <div className="flex items-start gap-2">
+          <MapPinOff className="h-3.5 w-3.5 text-zinc-500 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
+              This IFC is not georeferenced
+            </p>
+            <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+              No <code className="font-mono">IfcMapConversion</code>, <code className="font-mono">IfcProjectedCRS</code>, or <code className="font-mono">IfcSite</code> coordinates were found.
+              {editable
+                ? ' Add a coordinate reference system to place the model on a map.'
+                : ' The model cannot be placed on a map.'}
+            </p>
+            {editable && (
+              <div className="mt-2">
+                <EpsgLookupDialog onSelect={handleEpsgSelect}>
+                  <button className="flex items-center gap-1 text-[10px] text-teal-600 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300 transition-colors px-1.5 py-0.5 border border-teal-300/50 dark:border-teal-700/50 hover:bg-teal-50 dark:hover:bg-teal-950/50">
+                    <Globe className="h-2.5 w-2.5" />
+                    Add Georeferencing
+                  </button>
+                </EpsgLookupDialog>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -570,6 +616,26 @@ export function GeoreferencingPanel({ georef, modelId, enableEditing, schemaVers
                   Later
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Site-anchor fallback notice */}
+      {!mergedCRS && !mergedConversion && georef?.siteAnchor && (
+        <div className="mx-2 my-2 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5">
+          <div className="flex items-start gap-2">
+            <Globe className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                Auto-located from IfcSite
+              </p>
+              <p className="text-[10px] text-zinc-600 dark:text-zinc-400 font-mono mt-0.5">
+                {georef.siteAnchor.lat.toFixed(6)}°, {georef.siteAnchor.lon.toFixed(6)}°
+                {georef.siteAnchor.elevation !== 0 && ` · ${georef.siteAnchor.elevation.toFixed(1)} m`}
+              </p>
+              <p className="text-[9px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                No IfcMapConversion. Position derived from <code className="font-mono">IfcSite.RefLatitude/RefLongitude</code>.
+              </p>
             </div>
           </div>
         </div>
@@ -719,17 +785,51 @@ export function GeoreferencingPanel({ georef, modelId, enableEditing, schemaVers
       )}
 
       {/* Location minimap */}
-      <LocationMap
-        mapConversion={mergedConversion}
-        projectedCRS={mergedCRS}
-        coordinateInfo={coordinateInfo}
-        geometryResult={geometryResult}
-        lengthUnitScale={lengthUnitScale}
-        editable={editable}
-        onApplyPosition={editable ? handleApplyPosition : undefined}
-      />
+      <PanelErrorBoundary label="ArcGIS Scene Viewer">
+        <LazyLocationMap
+          mapConversion={mergedConversion}
+          projectedCRS={mergedCRS}
+          coordinateInfo={coordinateInfo}
+          geometryResult={geometryResult}
+          lengthUnitScale={lengthUnitScale}
+          editable={editable}
+          onApplyPosition={editable ? handleApplyPosition : undefined}
+          siteAnchor={georef?.siteAnchor}
+        />
+      </PanelErrorBoundary>
     </div>
   );
+}
+
+/**
+ * Wrapper that defers mounting the ArcGIS scene viewer until the user clicks
+ * "Show map". This avoids:
+ *   - GPU contention with the main 3D viewer's WebGL context (large IFCs can
+ *     starve the ArcGIS renderer enough to kill its WebGL context).
+ *   - 30+ s of main-thread blocking from heavy IFC parsing tanking ArcGIS's
+ *     terrain-tile decoders ("Cannot read properties of null (reading
+ *     'decode')" errors).
+ * The user opts in once they're ready to see the map.
+ */
+function LazyLocationMap(props: React.ComponentProps<typeof LocationMap>) {
+  const [show, setShow] = React.useState(false);
+  if (!show) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 p-4 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 text-xs">
+        <button
+          type="button"
+          onClick={() => setShow(true)}
+          className="px-3 py-1.5 text-[11px] font-medium text-white bg-teal-600 hover:bg-teal-700"
+        >
+          Show map
+        </button>
+        <p className="text-[10px] text-center max-w-[28ch]">
+          Mount the ArcGIS 3D scene to preview the model on a globe with terrain.
+        </p>
+      </div>
+    );
+  }
+  return <LocationMap {...props} />;
 }
 
 /** Small button to apply Cesium terrain height to OrthogonalHeight field */

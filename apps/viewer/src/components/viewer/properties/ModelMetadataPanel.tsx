@@ -26,6 +26,7 @@ import { GeoreferencingPanel } from './GeoreferencingPanel';
 import type { PropertySet } from './encodingUtils';
 import type { FederatedModel } from '@/store/types';
 import { extractGeoreferencingOnDemand, extractLengthUnitScale, type IfcDataStore } from '@ifc-lite/parser';
+import { getEffectiveGeoreference } from '@/lib/geo/effective-georef';
 
 /** Model metadata panel - displays file info, schema version, entity counts, etc. */
 export function ModelMetadataPanel({ model }: { model: FederatedModel }) {
@@ -81,12 +82,15 @@ export function ModelMetadataPanel({ model }: { model: FederatedModel }) {
     return { storeys, elementsWithGeometry };
   }, [dataStore]);
 
-  // Extract georeferencing info
+  // Extract georeferencing info (includes IfcSite RefLat/RefLon fallback).
   const georef = useMemo(() => {
     if (!dataStore) return null;
-    const info = extractGeoreferencingOnDemand(dataStore as IfcDataStore);
-    return info?.hasGeoreference ? info : null;
-  }, [dataStore]);
+    const effective = getEffectiveGeoreference(dataStore as IfcDataStore, model.geometryResult?.coordinateInfo);
+    if (effective) return effective;
+    // Last-ditch: surface the raw extractor output for any other consumers.
+    const raw = extractGeoreferencingOnDemand(dataStore as IfcDataStore);
+    return raw?.hasGeoreference ? raw : null;
+  }, [dataStore, model.geometryResult?.coordinateInfo]);
 
   // Extract length unit scale
   const unitInfo = useMemo(() => {

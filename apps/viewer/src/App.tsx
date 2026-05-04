@@ -17,6 +17,7 @@ import { ViewerLayout } from './components/viewer/ViewerLayout';
 import { SettingsPage } from './components/viewer/SettingsPage';
 import { McpLanding } from './components/mcp/McpLanding';
 import { McpPlayground } from './components/mcp/McpPlayground';
+import { ArcgisSceneViewerPage } from './components/viewer/properties/ArcgisSceneViewerPage';
 import { BimProvider } from './sdk/BimProvider';
 import { Toaster } from './components/ui/toast';
 import { useEffect, useState } from 'react';
@@ -54,6 +55,14 @@ export function App() {
     return (
       <>
         <McpLanding />
+        <Toaster />
+      </>
+    );
+  }
+  if (normalizedPath === '/scene-viewer') {
+    return (
+      <>
+        <ArcgisSceneViewerPage />
         <Toaster />
       </>
     );

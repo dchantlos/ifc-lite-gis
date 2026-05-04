@@ -332,6 +332,11 @@ export default defineConfig({
       'quickjs-emscripten',
       '@jitl/quickjs-wasmfile-release-asyncify',
       'esbuild-wasm',
+      // @arcgis/core ships a huge graph of internal modules that Vite's
+      // dep-optimizer can't statically analyze; it ends up rebundling
+      // mid-session and invalidating chunk hashes that the browser is
+      // already holding. Exclude so its modules are served as-is.
+      '@arcgis/core',
     ],
   },
   worker: {
