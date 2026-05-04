@@ -124,11 +124,12 @@ export function ArcgisLocationMap({
     const initScene = () => {
       if (disposed || !containerRef.current) return;
 
-      // `topo-vector` = topographic basemap (vector tiles). Combined with the
-      // WorldElevation3D layer below, this gives a topographic 3D scene with
-      // real terrain.
+      // Use a 3D-native topographic basemap so the SceneView runs in global
+      // WGS84 mode. The 2D `topo-vector` basemap forces the scene into Web
+      // Mercator, which then rejects WGS84-anchored IFC mesh graphics with
+      // "Graphic ... has incompatible spatial reference and will not render".
       const scene = new WebScene({
-        basemap: 'topo-vector',
+        basemap: 'topo-3d',
         ground: {
           layers: [new ElevationLayer({
             url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',

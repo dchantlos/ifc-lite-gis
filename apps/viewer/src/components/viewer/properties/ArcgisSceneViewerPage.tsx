@@ -49,8 +49,11 @@ export function ArcgisSceneViewerPage() {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Use the 3D-native topographic basemap so the SceneView runs in global
+    // WGS84 mode. The 2D `topo-vector` basemap is Web Mercator and triggers
+    // "Graphic has incompatible spatial reference" errors for WGS84 meshes.
     const scene = new WebScene({
-      basemap: 'topo-vector',
+      basemap: 'topo-3d',
       ground: {
         layers: [new ElevationLayer({
           url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
