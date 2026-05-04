@@ -134,8 +134,23 @@ export function ArcgisSceneViewerPage() {
       if (!view) return;
 
       const payload = data.payload as ScenePayload;
+      console.info('[SceneViewerPage] payload received', {
+        lat: payload.lat,
+        lon: payload.lon,
+        orthogonalHeight: payload.orthogonalHeight,
+        headingDeg: payload.headingDeg,
+        scale: payload.scale,
+        clampToGround: payload.clampToGround,
+        glbBytes: payload.glb?.byteLength,
+      });
       let blobUrl: string | null = null;
       try {
+        if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lon)) {
+          throw new Error(
+            `Invalid anchor lat/lon (lat=${payload.lat}, lon=${payload.lon}). ` +
+            `The IFC may not be georeferenced.`,
+          );
+        }
         const anchor = new Point({
           longitude: payload.lon,
           latitude: payload.lat,
@@ -147,6 +162,13 @@ export function ArcgisSceneViewerPage() {
         blobUrl = URL.createObjectURL(blob);
         const mesh = await Mesh.createFromGLTF(anchor, blobUrl);
         await mesh.load();
+        console.info('[SceneViewerPage] mesh loaded', {
+          extent: mesh.extent ? {
+            xmin: mesh.extent.xmin, ymin: mesh.extent.ymin, zmin: mesh.extent.zmin,
+            xmax: mesh.extent.xmax, ymax: mesh.extent.ymax, zmax: mesh.extent.zmax,
+            sr: mesh.extent.spatialReference?.wkid,
+          } : null,
+        });
 
         if (Math.abs(payload.headingDeg) > 1e-6) {
           mesh.rotate(0, 0, payload.headingDeg, { origin: anchor });
@@ -176,6 +198,7 @@ export function ArcgisSceneViewerPage() {
           } as any,
         });
         view.graphics.add(graphic);
+        console.info('[SceneViewerPage] graphic added; total graphics:', view.graphics.length);
         setWaiting(false);
 
         view.goTo({ target: graphic, tilt: 55 }, { duration: 1200, animate: true }).catch((err) => {
