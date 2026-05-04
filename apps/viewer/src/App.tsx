@@ -37,12 +37,20 @@ export function App() {
   // IFCs in-browser, but uses its own minimal pipeline (parser → headless
   // backend → BimContext) rather than the full viewer stack.
   //
+  // Strip the Vite base path (e.g. "/ifc-lite-gis/" on GitHub Pages, "/"
+  // locally) before matching routes so the same checks work on both hosts.
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  const baseTrimmed = baseUrl.replace(/\/$/, '');
+  const withoutBase = baseTrimmed && pathname.startsWith(baseTrimmed)
+    ? pathname.slice(baseTrimmed.length) || '/'
+    : pathname;
+
   // Normalise the trailing slash before matching so `/mcp/playground/`
   // (e.g. shared from a browser address bar that auto-appends `/`) hits
   // the playground branch instead of falling through to the landing.
-  const normalizedPath = pathname.length > 1 && pathname.endsWith('/')
-    ? pathname.slice(0, -1)
-    : pathname;
+  const normalizedPath = withoutBase.length > 1 && withoutBase.endsWith('/')
+    ? withoutBase.slice(0, -1)
+    : withoutBase;
   if (normalizedPath === '/mcp/playground') {
     return (
       <>

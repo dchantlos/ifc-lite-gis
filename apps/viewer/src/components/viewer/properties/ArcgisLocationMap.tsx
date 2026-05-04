@@ -415,7 +415,8 @@ export function ArcgisLocationMap({
               // IFC orthogonalHeight is unreliable; always clamp on receiver.
               clampToGround: true,
             };
-            const win = window.open('/scene-viewer', '_blank', 'noopener=no');
+            const sceneViewerUrl = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/scene-viewer`;
+            const win = window.open(sceneViewerUrl, '_blank', 'noopener=no');
             if (!win) {
               console.warn('[ArcgisLocationMap] popup blocked');
               return;

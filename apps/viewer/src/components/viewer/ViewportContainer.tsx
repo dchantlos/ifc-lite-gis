@@ -724,7 +724,7 @@ export function ViewportContainer() {
               {/* Logo Container */}
               <div className="relative z-10 animate-float-slow transition-transform duration-300 group-hover/logo:scale-110">
                 <img 
-                  src="/logo.png" 
+                  src={`${import.meta.env.BASE_URL}logo.png`} 
                   alt="IFClite Logo" 
                   className="h-28 w-auto drop-shadow-lg"
                 />
