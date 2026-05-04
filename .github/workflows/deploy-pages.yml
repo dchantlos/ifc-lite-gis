@@ -55,15 +55,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build workspace
-        run: pnpm build
-
-      - name: Build viewer
+      - name: Build viewer (with workspace deps via turbo)
         env:
           # Subpath the site is served from. Must match the repo name with
           # leading and trailing slashes.
           VITE_BASE: /${{ github.event.repository.name }}/
-        run: pnpm --filter @ifc-lite/viewer build
+          # GitHub-hosted runners have 16 GB RAM; raise Node heap so the
+          # ArcGIS + Cesium + Three bundle doesn't SIGABRT (exit 134).
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: pnpm --filter @ifc-lite/viewer... build
 
       - name: SPA fallback (copy index.html → 404.html)
         run: cp apps/viewer/dist/index.html apps/viewer/dist/404.html
