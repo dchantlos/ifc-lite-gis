@@ -1,0 +1,88 @@
+# GitHub Pages deployment for the @ifc-lite/viewer SPA.
+#
+# Builds the viewer with VITE_BASE set to the repo subpath so assets resolve
+# correctly when served from `https://<user>.github.io/<repo>/`. Copies
+# `index.html` to `404.html` so client-side routes like `/scene-viewer`
+# resolve when refreshed (GitHub Pages otherwise serves a hard 404 page).
+
+name: Deploy viewer to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - feat/arcgis-scene-viewer
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, cancel in-progress runs.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace
+        run: pnpm build
+
+      - name: Build viewer
+        env:
+          # Subpath the site is served from. Must match the repo name with
+          # leading and trailing slashes.
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: pnpm --filter @ifc-lite/viewer build
+
+      - name: SPA fallback (copy index.html → 404.html)
+        run: cp apps/viewer/dist/index.html apps/viewer/dist/404.html
+
+      - name: Disable Jekyll
+        run: touch apps/viewer/dist/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/viewer/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

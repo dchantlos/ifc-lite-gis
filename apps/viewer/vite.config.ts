@@ -213,6 +213,11 @@ const rootPkg = JSON.parse(
 const appVersion = viewerPkg.version || rootPkg.version;
 
 export default defineConfig({
+  // GitHub Pages serves the site under a subpath (e.g.
+  // `https://<user>.github.io/<repo>/`). Set `VITE_BASE` in CI to
+  // `/<repo>/` so all asset URLs resolve correctly. Defaults to `/`
+  // for local dev and other deployment targets (Vercel, Netlify).
+  base: process.env.VITE_BASE || '/',
   plugins: [
     react(),
     wasm(),
@@ -238,7 +243,7 @@ export default defineConfig({
     __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
     __RELEASE_HISTORY__: JSON.stringify(parseChangelogs()),
     __PACKAGE_VERSIONS__: JSON.stringify(collectPackageVersions()),
-    CESIUM_BASE_URL: JSON.stringify('/cesium'),
+    CESIUM_BASE_URL: JSON.stringify((process.env.VITE_BASE || '/').replace(/\/$/, '') + '/cesium'),
   },
   resolve: {
     alias: {
