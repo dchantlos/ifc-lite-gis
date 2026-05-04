@@ -21,7 +21,6 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
-import SceneLayer from '@arcgis/core/layers/SceneLayer';
 
 import { buildMergedGLB } from '@/lib/geo/buildMergedGLB';
 import { reprojectToLatLon } from '@/lib/geo/reproject';
@@ -124,21 +123,20 @@ export function ArcgisLocationMap({
     const initScene = () => {
       if (disposed || !containerRef.current) return;
 
-      // Use a 3D-native topographic basemap so the SceneView runs in global
-      // WGS84 mode. The 2D `topo-vector` basemap forces the scene into Web
-      // Mercator, which then rejects WGS84-anchored IFC mesh graphics with
-      // "Graphic ... has incompatible spatial reference and will not render".
+      // Use the anonymous OpenStreetMap basemap. v2 3D styles like
+      // `topo-3d` require an ArcGIS API key in @arcgis/core v5+; without
+      // one, tile requests 401 and the SceneView never finishes init.
+      //
+      // The global OSM 3D Buildings SceneLayer is intentionally omitted: its
+      // world-wide extent triggers per-frame
+      // `TerrainSurface.getSphereElevationRange` projection failures.
       const scene = new WebScene({
-        basemap: 'topo-3d',
+        basemap: 'osm',
         ground: {
           layers: [new ElevationLayer({
             url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
           })],
         },
-        layers: [new SceneLayer({
-          url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Open3D_Buildings_v1/SceneServer',
-          title: 'OSM 3D Buildings',
-        })],
       });
 
       view = new SceneView({

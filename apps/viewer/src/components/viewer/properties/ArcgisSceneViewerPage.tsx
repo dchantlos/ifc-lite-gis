@@ -19,7 +19,6 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
-import SceneLayer from '@arcgis/core/layers/SceneLayer';
 import LayerList from '@arcgis/core/widgets/LayerList';
 import Expand from '@arcgis/core/widgets/Expand';
 import Daylight from '@arcgis/core/widgets/Daylight';
@@ -49,28 +48,32 @@ export function ArcgisSceneViewerPage() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Use the 3D-native topographic basemap so the SceneView runs in global
-    // WGS84 mode. The 2D `topo-vector` basemap is Web Mercator and triggers
-    // "Graphic has incompatible spatial reference" errors for WGS84 meshes.
+    // Use the anonymous OpenStreetMap basemap. The 3D-native styles like
+    // `topo-3d` are v2 basemap styles that require an ArcGIS API key in
+    // @arcgis/core v5+ — without a key, tile requests 401 and SceneView
+    // can't bring up a working layerview pipeline, which also blocks the
+    // IFC mesh graphic from rendering.
+    //
+    // Note: we intentionally do NOT add the global OSM 3D Buildings SceneLayer
+    // here. Its world-wide extent makes the terrain `getSphereElevationRange`
+    // call fail every frame ("could not project given point to tiling scheme
+    // coordinate system"), spamming the console and stalling layerview setup.
     const scene = new WebScene({
-      basemap: 'topo-3d',
+      basemap: 'osm',
       ground: {
         layers: [new ElevationLayer({
           url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
         })],
       },
-      layers: [new SceneLayer({
-        url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Open3D_Buildings_v1/SceneServer',
-        title: 'OSM 3D Buildings',
-      })],
     });
 
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
       // Force global WGS84 mode so all layers and graphics share a
-      // consistent SR. Without this SceneView occasionally falls into a
-      // local/Web Mercator mode that breaks layerviews and rejects WGS84
+      // consistent SR. Without an explicit spatialReference, SceneView
+      // sometimes falls into a local/Web Mercator mode that breaks
+      // layerviews (including the basemap's own tiles) and rejects WGS84
       // mesh graphics with "incompatible spatial reference".
       viewingMode: 'global',
       spatialReference: SpatialReference.WGS84,
