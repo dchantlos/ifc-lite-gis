@@ -20,6 +20,7 @@ import Graphic from '@arcgis/core/Graphic';
 import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
+import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
@@ -235,12 +236,22 @@ export function ArcgisLocationMap({
         }
 
         const orthogonalHeight = mapConversion?.orthogonalHeight ?? siteAnchor?.elevation ?? 0;
-        const anchor = new Point({
+        const anchorWGS84 = new Point({
           longitude: anchorLatLon.lon,
           latitude: anchorLatLon.lat,
           z: orthogonalHeight,
           spatialReference: SpatialReference.WGS84,
         });
+        // The view's SR comes from the basemap (topo-3d is Web Mercator /
+        // wkid 102100). Mesh geometry doesn't auto-reproject, so a WGS84
+        // mesh would be silently rejected as incompatible. Match view SR.
+        const viewSR = view.spatialReference ?? SpatialReference.WGS84;
+        const anchor = viewSR.isWebMercator
+          ? (webMercatorUtils.geographicToWebMercator(anchorWGS84) as Point)
+          : anchorWGS84;
+        if (viewSR.isWebMercator) {
+          anchor.z = anchorWGS84.z;
+        }
 
         // Drop a pin first so something appears even if the GLB load fails.
         const pin = new Graphic({
