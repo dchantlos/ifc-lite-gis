@@ -27,6 +27,7 @@ import BasemapGallery from '@arcgis/core/widgets/BasemapGallery';
 import Search from '@arcgis/core/widgets/Search';
 
 import { AnalysisToolbar } from './AnalysisToolbar';
+import { createAddLayerPanel } from './AddLayerPanel';
 
 interface ScenePayload {
   glb: ArrayBuffer;
@@ -89,7 +90,10 @@ export function ArcgisSceneViewerPage() {
       view.ui.add(new Expand({ view, content: layerList, expanded: false, expandTooltip: 'Layers' }), 'top-right');
       view.ui.add(new Expand({
         view,
-        content: new Daylight({ view }),
+        // Hide the date/time picker by default — the section title in
+        // the native viewer is "Sun position by date and time". The
+        // shadows + sun lighting toggles remain visible.
+        content: new Daylight({ view, visibleElements: { datePicker: false } }),
         expanded: false,
         expandTooltip: 'Daylight',
       }), 'top-right');
@@ -98,6 +102,13 @@ export function ArcgisSceneViewerPage() {
         content: new BasemapGallery({ view }),
         expanded: false,
         expandTooltip: 'Basemap gallery',
+      }), 'top-right');
+      view.ui.add(new Expand({
+        view,
+        content: createAddLayerPanel(view),
+        expanded: false,
+        expandIcon: 'plus-square',
+        expandTooltip: 'Add layer (URL or item id)',
       }), 'top-right');
 
       setReadyView(view);
