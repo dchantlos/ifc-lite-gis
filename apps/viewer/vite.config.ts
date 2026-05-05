@@ -237,6 +237,18 @@ export default defineConfig({
         ],
       });
     })(),
+    // Copy @arcgis/core static assets so the production bundle uses
+    // assets that match the installed module version (5.0.19) instead
+    // of falling back to a mismatched CDN. The mismatch breaks I3S
+    // worker decoding (and therefore 3D Buildings / Trees rendering).
+    (() => {
+      const arcgisPkg = path.dirname(require.resolve('@arcgis/core/package.json'));
+      return viteStaticCopy({
+        targets: [
+          { src: path.join(arcgisPkg, 'assets', '*'), dest: 'arcgis-assets' },
+        ],
+      });
+    })(),
   ],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),

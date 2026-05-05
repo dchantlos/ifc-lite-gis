@@ -14,11 +14,13 @@ import './index.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '@arcgis/core/assets/esri/themes/light/main.css';
 
-// Pin @arcgis/core's runtime assets to the Esri CDN so the deployed
-// production bundle doesn't depend on its own assets being copied to
-// the GitHub Pages base path. Matches the installed @arcgis/core
-// major (5.x ≈ JS API 4.34).
-esriConfig.assetsPath = 'https://js.arcgis.com/4.34/@arcgis/core/assets';
+// Pin @arcgis/core's runtime assets to the assets we copy into the
+// production build via vite-plugin-static-copy. This ensures the
+// asset version matches the installed module version (avoids the
+// I3S worker decoder version-mismatch that breaks 3D Buildings on
+// the deployed site).
+const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
+esriConfig.assetsPath = `${baseUrl}/arcgis-assets`;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
