@@ -85,6 +85,31 @@ export function ArcgisSceneViewerPage() {
         spatialReferenceWkid: view.spatialReference?.wkid,
         basemap: scene.basemap?.title ?? scene.basemap?.id,
       });
+
+      // Diagnostic: dump every layer's load error and inner layerview
+      // create-error reason so we can pinpoint why the I3S buildings/
+      // trees/labels sublayers aren't rendering.
+      (window as unknown as { __view?: SceneView }).__view = view;
+      view.map.allLayers.forEach((layer) => {
+        layer.when(() => {
+          console.info('[layer ready]', layer.title, {
+            type: layer.type,
+            wkid: (layer as unknown as { spatialReference?: { wkid?: number } }).spatialReference?.wkid,
+            loadStatus: layer.loadStatus,
+          });
+        }, (err: unknown) => {
+          console.error('[layer load FAILED]', layer.title, err);
+        });
+      });
+      view.on('layerview-create-error', (ev) => {
+        const err = ev.error as unknown as { name?: string; message?: string; details?: unknown };
+        console.error('[layerview-create-error]', ev.layer?.title, {
+          name: err?.name,
+          message: err?.message,
+          details: err?.details,
+        });
+      });
+
       const layerList = new LayerList({ view });
       view.ui.add(new Search({ view }), { position: 'top-left', index: 0 });
       view.ui.add(new Expand({ view, content: layerList, expanded: false, expandTooltip: 'Layers' }), 'top-right');
