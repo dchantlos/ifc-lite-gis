@@ -102,12 +102,7 @@ export function ArcgisLocationMap({
     return () => { cancelled = true; };
   }, [hasMapConversion, mapConversion, projectedCRS, coordinateInfo, lengthUnitScale, siteAnchor]);
 
-  // Track which IFC payload (geometryResult identity) we've already
-  // auto-launched the Scene Viewer for, so re-renders don't keep popping
-  // new tabs.
-  const autoLaunchedForRef = useRef<unknown>(null);
-
-  const openInSceneViewer = useCallback((opts: { silent?: boolean } = {}): boolean => {
+  const openInSceneViewer = useCallback((): boolean => {
     const meshes = geometryResult?.meshes;
     if (!meshes || meshes.length === 0) return false;
     if (!anchorLatLon) return false;
@@ -118,22 +113,17 @@ export function ArcgisLocationMap({
     // the user.
     const HARD_LIMIT = 15_000_000;
     if (totalVerts > HARD_LIMIT) {
-      if (!opts.silent) {
-        alert(
-          `Model is too large to open in Scene Viewer (${(totalVerts / 1e6).toFixed(1)} M verts, limit ${(HARD_LIMIT / 1e6).toFixed(0)} M).\n\nThe browser cannot transfer a single GLB this large without crashing.`,
-        );
-      }
+      alert(
+        `Model is too large to open in Scene Viewer (${(totalVerts / 1e6).toFixed(1)} M verts, limit ${(HARD_LIMIT / 1e6).toFixed(0)} M).\n\nThe browser cannot transfer a single GLB this large without crashing.`,
+      );
       return false;
     }
     // Warn for moderately large models that may take a long time / a lot of RAM.
-    if (!opts.silent && totalVerts > 5_000_000 && !confirm(
+    if (totalVerts > 5_000_000 && !confirm(
       `This model has ${(totalVerts / 1e6).toFixed(1)} M vertices. Opening it in Scene Viewer may take a long time and use a lot of memory. Continue?`,
     )) {
       return false;
     }
-    // For auto-launch with very large models, skip silently to avoid
-    // surprising the user with a crashed popup.
-    if (opts.silent && totalVerts > 5_000_000) return false;
 
     const glb = buildMergedGLB(meshes);
     // Detach the underlying ArrayBuffer for transfer to the new tab.
@@ -179,17 +169,6 @@ export function ArcgisLocationMap({
     window.addEventListener('message', onMessage);
     return true;
   }, [geometryResult, anchorLatLon, mapConversion, siteAnchor]);
-
-  // Auto-launch the Scene Viewer popup once an IFC has been parsed and
-  // georeferenced. Browsers may block popups not tied to a recent user
-  // gesture; if so, the manual button below remains available as a
-  // fallback.
-  useEffect(() => {
-    if (!geometryResult || !anchorLatLon) return;
-    if (autoLaunchedForRef.current === geometryResult) return;
-    autoLaunchedForRef.current = geometryResult;
-    openInSceneViewer({ silent: true });
-  }, [geometryResult, anchorLatLon, openInSceneViewer]);
 
   // ─── Effect 1: build the SceneView once. ────────────────────────────────
   useEffect(() => {

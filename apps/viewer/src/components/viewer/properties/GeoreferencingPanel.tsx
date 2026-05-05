@@ -812,23 +812,12 @@ export function GeoreferencingPanel({ georef, modelId, enableEditing, schemaVers
  * The user opts in once they're ready to see the map.
  */
 function LazyLocationMap(props: React.ComponentProps<typeof LocationMap>) {
-  const [show, setShow] = React.useState(false);
-  if (!show) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 p-4 border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 text-xs">
-        <button
-          type="button"
-          onClick={() => setShow(true)}
-          className="px-3 py-1.5 text-[11px] font-medium text-white bg-teal-600 hover:bg-teal-700"
-        >
-          Show map
-        </button>
-        <p className="text-[10px] text-center max-w-[28ch]">
-          Mount the ArcGIS 3D scene to preview the model on a globe with terrain.
-        </p>
-      </div>
-    );
-  }
+  // Auto-mount the ArcGIS scene as soon as the panel renders. Earlier we
+  // gated this behind a 'Show map' button to avoid starving ArcGIS's
+  // terrain-tile decoders during heavy IFC parsing, but the UX cost
+  // outweighs the rare race — users expect the map to be visible
+  // immediately. The full-screen Scene Viewer remains opt-in via the
+  // 'Open IFC in Scene Viewer' button below the map.
   return <LocationMap {...props} />;
 }
 
