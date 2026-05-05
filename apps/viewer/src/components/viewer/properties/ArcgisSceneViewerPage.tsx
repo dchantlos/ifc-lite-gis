@@ -20,7 +20,7 @@ import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
-import Layer from '@arcgis/core/layers/Layer';
+import SceneLayer from '@arcgis/core/layers/SceneLayer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
 import LayerList from '@arcgis/core/widgets/LayerList';
@@ -70,18 +70,14 @@ export function ArcgisSceneViewerPage() {
           url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
         })],
       },
+      // Esri 3D Buildings as a default operational layer.
+      layers: [
+        new SceneLayer({
+          url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Esri3D_Buildings_v1/SceneServer',
+          title: '3D Buildings',
+        }),
+      ],
     });
-
-    // Add OSM 3D Buildings (AGOL item b8fec5af7dfe4866b1b8ac2d2800f282) as
-    // a default operational layer. Loaded async via PortalItem so a slow or
-    // failed fetch doesn't block the rest of the scene from coming up.
-    Layer.fromPortalItem({
-      portalItem: new PortalItem({ id: 'b8fec5af7dfe4866b1b8ac2d2800f282' }),
-    })
-      .then((layer) => { scene.add(layer); })
-      .catch((err) => {
-        console.warn('[SceneViewerPage] OSM 3D Buildings load failed', err);
-      });
 
     const view = new SceneView({
       container: containerRef.current,

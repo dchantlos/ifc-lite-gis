@@ -22,7 +22,7 @@ import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
-import Layer from '@arcgis/core/layers/Layer';
+import SceneLayer from '@arcgis/core/layers/SceneLayer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
 
@@ -210,17 +210,14 @@ export function ArcgisLocationMap({
             url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
           })],
         },
+        // Esri 3D Buildings as a default operational layer.
+        layers: [
+          new SceneLayer({
+            url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Esri3D_Buildings_v1/SceneServer',
+            title: '3D Buildings',
+          }),
+        ],
       });
-
-      // Add OSM 3D Buildings as a default operational layer (async; failure
-      // is non-fatal).
-      Layer.fromPortalItem({
-        portalItem: new PortalItem({ id: 'b8fec5af7dfe4866b1b8ac2d2800f282' }),
-      })
-        .then((layer) => { if (!disposed) scene.add(layer); })
-        .catch((err) => {
-          console.warn('[ArcgisLocationMap] OSM 3D Buildings load failed', err);
-        });
 
       view = new SceneView({
         container: containerRef.current,
