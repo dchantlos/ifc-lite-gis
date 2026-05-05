@@ -210,11 +210,11 @@ export function ArcgisLocationMap({
             url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
           })],
         },
-        // Esri 3D Buildings as a default operational layer.
+        // OSM 3D Buildings (Web Mercator) to match the WM topo basemap.
         layers: [
           (() => {
             const layer = new SceneLayer({
-              url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Esri3D_Buildings_v1/SceneServer',
+              url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/OpenStreetMap3D_Buildings_v1/SceneServer',
               title: '3D Buildings',
               visible: true,
             });
