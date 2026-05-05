@@ -65,6 +65,9 @@ export function ArcgisSceneViewerPage() {
       environment: {
         lighting: {
           type: 'sun',
+          // Default to 1pm local — the WebScene has a nighttime
+          // datetime saved which makes the scene render dark.
+          date: new Date('2026-06-21T13:00:00'),
           directShadowsEnabled: true,
         },
       },
