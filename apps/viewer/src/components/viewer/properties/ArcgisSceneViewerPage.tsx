@@ -24,6 +24,7 @@ import LayerList from '@arcgis/core/widgets/LayerList';
 import Expand from '@arcgis/core/widgets/Expand';
 import Daylight from '@arcgis/core/widgets/Daylight';
 import BasemapGallery from '@arcgis/core/widgets/BasemapGallery';
+import Search from '@arcgis/core/widgets/Search';
 
 import { AnalysisToolbar } from './AnalysisToolbar';
 
@@ -65,9 +66,10 @@ export function ArcgisSceneViewerPage() {
       environment: {
         lighting: {
           type: 'sun',
-          // Default to 1pm local — the WebScene has a nighttime
-          // datetime saved which makes the scene render dark.
-          date: new Date('2026-06-21T13:00:00'),
+          // Default to 11am MST (UTC−7, no DST) → 18:00 UTC. The
+          // saved WebScene has a nighttime datetime which would
+          // otherwise render the scene dark.
+          date: new Date('2026-06-21T18:00:00Z'),
           directShadowsEnabled: true,
         },
       },
@@ -83,6 +85,7 @@ export function ArcgisSceneViewerPage() {
         basemap: scene.basemap?.title ?? scene.basemap?.id,
       });
       const layerList = new LayerList({ view });
+      view.ui.add(new Search({ view }), { position: 'top-left', index: 0 });
       view.ui.add(new Expand({ view, content: layerList, expanded: false, expandTooltip: 'Layers' }), 'top-right');
       view.ui.add(new Expand({
         view,
