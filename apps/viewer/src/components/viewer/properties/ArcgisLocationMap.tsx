@@ -9,7 +9,7 @@
  * placed as a `mesh-3d` Graphic anchored at its georeferenced lat/lon.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ExternalLink, Loader2, MapPinOff } from 'lucide-react';
 import type { MapConversion, ProjectedCRS } from '@ifc-lite/parser';
 import type { CoordinateInfo, GeometryResult } from '@ifc-lite/geometry';
@@ -22,6 +22,7 @@ import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
+import Layer from '@arcgis/core/layers/Layer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
 
@@ -101,6 +102,95 @@ export function ArcgisLocationMap({
     return () => { cancelled = true; };
   }, [hasMapConversion, mapConversion, projectedCRS, coordinateInfo, lengthUnitScale, siteAnchor]);
 
+  // Track which IFC payload (geometryResult identity) we've already
+  // auto-launched the Scene Viewer for, so re-renders don't keep popping
+  // new tabs.
+  const autoLaunchedForRef = useRef<unknown>(null);
+
+  const openInSceneViewer = useCallback((opts: { silent?: boolean } = {}): boolean => {
+    const meshes = geometryResult?.meshes;
+    if (!meshes || meshes.length === 0) return false;
+    if (!anchorLatLon) return false;
+    let totalVerts = 0;
+    for (const m of meshes) totalVerts += (m.positions?.length ?? 0) / 3;
+    // Above ~15 M verts the merged GLB approaches 500 MB and the new
+    // tab almost always OOMs during decode. Block the open and tell
+    // the user.
+    const HARD_LIMIT = 15_000_000;
+    if (totalVerts > HARD_LIMIT) {
+      if (!opts.silent) {
+        alert(
+          `Model is too large to open in Scene Viewer (${(totalVerts / 1e6).toFixed(1)} M verts, limit ${(HARD_LIMIT / 1e6).toFixed(0)} M).\n\nThe browser cannot transfer a single GLB this large without crashing.`,
+        );
+      }
+      return false;
+    }
+    // Warn for moderately large models that may take a long time / a lot of RAM.
+    if (!opts.silent && totalVerts > 5_000_000 && !confirm(
+      `This model has ${(totalVerts / 1e6).toFixed(1)} M vertices. Opening it in Scene Viewer may take a long time and use a lot of memory. Continue?`,
+    )) {
+      return false;
+    }
+    // For auto-launch with very large models, skip silently to avoid
+    // surprising the user with a crashed popup.
+    if (opts.silent && totalVerts > 5_000_000) return false;
+
+    const glb = buildMergedGLB(meshes);
+    // Detach the underlying ArrayBuffer for transfer to the new tab.
+    const buffer = (glb.byteOffset === 0 && glb.byteLength === glb.buffer.byteLength)
+      ? glb.buffer
+      : glb.slice().buffer;
+    let headingDeg = 0;
+    if (mapConversion) {
+      const theta = Math.atan2(
+        mapConversion.xAxisOrdinate ?? 0,
+        mapConversion.xAxisAbscissa ?? 1,
+      );
+      headingDeg = (theta * 180) / Math.PI;
+    }
+    const payload = {
+      glb: buffer,
+      lat: anchorLatLon.lat,
+      lon: anchorLatLon.lon,
+      orthogonalHeight: mapConversion?.orthogonalHeight ?? siteAnchor?.elevation ?? 0,
+      headingDeg,
+      // mapConversion.scale is engineering→projected scale; mesh is
+      // already in metres for WGS84 placement. Send 1.
+      scale: 1,
+      // IFC orthogonalHeight is unreliable; always clamp on receiver.
+      clampToGround: true,
+    };
+    const sceneViewerUrl = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/scene-viewer`;
+    // NOTE: do NOT pass 'noopener' (or any string containing it) here.
+    // window.open's 3rd arg is parsed for the keyword 'noopener'; if
+    // present, the browser strips window.opener in the new tab and
+    // the scene viewer can never receive the GLB via postMessage.
+    const win = window.open(sceneViewerUrl, '_blank');
+    if (!win) {
+      console.warn('[ArcgisLocationMap] popup blocked');
+      return false;
+    }
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.source !== win) return;
+      if (ev.data?.type !== 'ifc-lite:scene-viewer-ready') return;
+      win.postMessage({ type: 'ifc-lite:scene-payload', payload }, '*', [payload.glb]);
+      window.removeEventListener('message', onMessage);
+    };
+    window.addEventListener('message', onMessage);
+    return true;
+  }, [geometryResult, anchorLatLon, mapConversion, siteAnchor]);
+
+  // Auto-launch the Scene Viewer popup once an IFC has been parsed and
+  // georeferenced. Browsers may block popups not tied to a recent user
+  // gesture; if so, the manual button below remains available as a
+  // fallback.
+  useEffect(() => {
+    if (!geometryResult || !anchorLatLon) return;
+    if (autoLaunchedForRef.current === geometryResult) return;
+    autoLaunchedForRef.current = geometryResult;
+    openInSceneViewer({ silent: true });
+  }, [geometryResult, anchorLatLon, openInSceneViewer]);
+
   // ─── Effect 1: build the SceneView once. ────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || !hasGeoref) {
@@ -142,6 +232,16 @@ export function ArcgisLocationMap({
           })],
         },
       });
+
+      // Add OSM 3D Buildings as a default operational layer (async; failure
+      // is non-fatal).
+      Layer.fromPortalItem({
+        portalItem: new PortalItem({ id: 'b8fec5af7dfe4866b1b8ac2d2800f282' }),
+      })
+        .then((layer) => { if (!disposed) scene.add(layer); })
+        .catch((err) => {
+          console.warn('[ArcgisLocationMap] OSM 3D Buildings load failed', err);
+        });
 
       view = new SceneView({
         container: containerRef.current,
@@ -387,70 +487,7 @@ export function ArcgisLocationMap({
       {anchorLatLon && (
         <button
           type="button"
-          onClick={() => {
-            const meshes = geometryResult?.meshes;
-            if (!meshes || meshes.length === 0) return;
-            let totalVerts = 0;
-            for (const m of meshes) totalVerts += (m.positions?.length ?? 0) / 3;
-            // Above ~15 M verts the merged GLB approaches 500 MB and the new
-            // tab almost always OOMs during decode. Block the open and tell
-            // the user.
-            const HARD_LIMIT = 15_000_000;
-            if (totalVerts > HARD_LIMIT) {
-              alert(
-                `Model is too large to open in Scene Viewer (${(totalVerts / 1e6).toFixed(1)} M verts, limit ${(HARD_LIMIT / 1e6).toFixed(0)} M).\n\nThe browser cannot transfer a single GLB this large without crashing.`,
-              );
-              return;
-            }
-            // Warn for moderately large models that may take a long time / a lot of RAM.
-            if (totalVerts > 5_000_000 && !confirm(
-              `This model has ${(totalVerts / 1e6).toFixed(1)} M vertices. Opening it in Scene Viewer may take a long time and use a lot of memory. Continue?`,
-            )) {
-              return;
-            }
-            const glb = buildMergedGLB(meshes);
-            // Detach the underlying ArrayBuffer for transfer to the new tab.
-            const buffer = (glb.byteOffset === 0 && glb.byteLength === glb.buffer.byteLength)
-              ? glb.buffer
-              : glb.slice().buffer;
-            let headingDeg = 0;
-            if (mapConversion) {
-              const theta = Math.atan2(
-                mapConversion.xAxisOrdinate ?? 0,
-                mapConversion.xAxisAbscissa ?? 1,
-              );
-              headingDeg = (theta * 180) / Math.PI;
-            }
-            const payload = {
-              glb: buffer,
-              lat: anchorLatLon.lat,
-              lon: anchorLatLon.lon,
-              orthogonalHeight: mapConversion?.orthogonalHeight ?? siteAnchor?.elevation ?? 0,
-              headingDeg,
-              // mapConversion.scale is engineering→projected scale; mesh is
-              // already in metres for WGS84 placement. Send 1.
-              scale: 1,
-              // IFC orthogonalHeight is unreliable; always clamp on receiver.
-              clampToGround: true,
-            };
-            const sceneViewerUrl = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/scene-viewer`;
-            // NOTE: do NOT pass 'noopener' (or any string containing it) here.
-            // window.open's 3rd arg is parsed for the keyword 'noopener'; if
-            // present, the browser strips window.opener in the new tab and
-            // the scene viewer can never receive the GLB via postMessage.
-            const win = window.open(sceneViewerUrl, '_blank');
-            if (!win) {
-              console.warn('[ArcgisLocationMap] popup blocked');
-              return;
-            }
-            const onMessage = (ev: MessageEvent) => {
-              if (ev.source !== win) return;
-              if (ev.data?.type !== 'ifc-lite:scene-viewer-ready') return;
-              win.postMessage({ type: 'ifc-lite:scene-payload', payload }, '*', [payload.glb]);
-              window.removeEventListener('message', onMessage);
-            };
-            window.addEventListener('message', onMessage);
-          }}
+          onClick={() => { openInSceneViewer(); }}
           className="flex items-center justify-center gap-1.5 w-full px-2 py-1 text-[10px] font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/40 border border-teal-300/50 dark:border-teal-700/50 transition-colors"
         >
           <ExternalLink className="h-2.5 w-2.5" />
