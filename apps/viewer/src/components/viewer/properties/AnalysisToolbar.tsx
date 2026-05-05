@@ -75,26 +75,55 @@ export function AnalysisToolbar({ view, size = 'default' }: AnalysisToolbarProps
   };
 
   const startTool = async (kind: AnalysisKind) => {
-    if (!view) return;
+    if (!view) {
+      console.warn('[AnalysisToolbar] no view available');
+      return;
+    }
     stopActive();
 
+    console.info('[AnalysisToolbar] start', kind);
     const analysis = createAnalysis(kind);
-    // Cast: the analyses collection accepts any analysis subclass, but the
-    // union typing isn't narrowed by switch.
-    (view.analyses as unknown as { add: (a: unknown) => void }).add(analysis);
+    view.analyses.add(analysis);
 
     const controller = new AbortController();
     abortRef.current = controller;
     setActive(kind);
 
     try {
-      const analysisView = await view.whenAnalysisView(analysis as never);
-      // Continuously place new analyses until the user aborts (Esc / button).
-      while (!controller.signal.aborted) {
-        await (analysisView as unknown as {
-          place: (opts: { signal: AbortSignal }) => Promise<unknown>;
-        }).place({ signal: controller.signal });
-      }
+      // The analyses collection holds the union; narrow per-branch so
+      // whenAnalysisView<T> picks the right concrete AnalysisView3D type.
+      const place = async (signal: AbortSignal): Promise<void> => {
+        switch (analysis.declaredClass) {
+          case 'esri.analysis.AreaMeasurementAnalysis': {
+            const av = await view.whenAnalysisView(analysis as AreaMeasurementAnalysis);
+            while (!signal.aborted) await av.place({ signal });
+            break;
+          }
+          case 'esri.analysis.DimensionAnalysis': {
+            const av = await view.whenAnalysisView(analysis as DimensionAnalysis);
+            while (!signal.aborted) await av.place({ signal });
+            break;
+          }
+          case 'esri.analysis.DirectLineMeasurementAnalysis': {
+            const av = await view.whenAnalysisView(analysis as DirectLineMeasurementAnalysis);
+            while (!signal.aborted) await av.place({ signal });
+            break;
+          }
+          case 'esri.analysis.LineOfSightAnalysis': {
+            const av = await view.whenAnalysisView(analysis as LineOfSightAnalysis);
+            while (!signal.aborted) await av.place({ signal });
+            break;
+          }
+          case 'esri.analysis.ViewshedAnalysis': {
+            const av = await view.whenAnalysisView(analysis as ViewshedAnalysis);
+            while (!signal.aborted) await av.place({ signal });
+            break;
+          }
+          default:
+            console.warn('[AnalysisToolbar] unknown analysis class', analysis.declaredClass);
+        }
+      };
+      await place(controller.signal);
     } catch (err) {
       if (!promiseUtils.isAbortError(err)) {
         console.error('[AnalysisToolbar] place failed', err);
