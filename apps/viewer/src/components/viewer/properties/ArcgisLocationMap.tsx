@@ -194,8 +194,6 @@ export function ArcgisLocationMap({
       view = new SceneView({
         container: containerRef.current,
         map: scene,
-        viewingMode: 'global',
-        spatialReference: SpatialReference.WGS84,
         qualityProfile: 'low',
         ui: { components: [] },
         // The saved WebScene has a nighttime datetime baked into its

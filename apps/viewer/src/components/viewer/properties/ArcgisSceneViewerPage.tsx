@@ -63,12 +63,6 @@ export function ArcgisSceneViewerPage() {
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
-      // Override the WebScene's saved spatialReference (102100) with
-      // WGS84 so the basemap's I3S sublayers (Buildings, Trees,
-      // Places & Labels) accept layerview creation. WM vector tile
-      // basemaps reproject onto a WGS84 globe.
-      viewingMode: 'global',
-      spatialReference: SpatialReference.WGS84,
       qualityProfile: 'high',
       environment: {
         lighting: {
