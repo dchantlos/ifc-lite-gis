@@ -19,6 +19,7 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
+import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
 import SceneLayer from '@arcgis/core/layers/SceneLayer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
@@ -60,18 +61,18 @@ export function ArcgisSceneViewerPage() {
     // here. Its world-wide extent makes the terrain `getSphereElevationRange`
     // call fail every frame ("could not project given point to tiling scheme
     // coordinate system"), spamming the console and stalling layerview setup.
-    // The Topographic 3D basemap is a global WebScene whose 3D content
-    // (Buildings, Trees, Places and Labels) is published as I3S SceneLayers
-    // in WGS84 (wkid 4326). If the view runs in Web Mercator, every one of
-    // those sublayers — plus our own 3D Buildings layer — is rejected
-    // with `layerview:create-error`. Force the view to WGS84 so they all
-    // resolve. We also let the basemap supply its own ground so we don't
-    // mix in a Web Mercator elevation service that would itself be rejected.
     const scene = new WebScene({
       basemap: new Basemap({
         portalItem: new PortalItem({ id: '0560e29930dc4d5ebeb58c635c0909c9' }),
       }),
-      // OpenStreetMap 3D Buildings (wkid 4326), matches the WGS84 view.
+      ground: {
+        layers: [new ElevationLayer({
+          url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
+        })],
+      },
+      // OSM 3D Buildings (Web Mercator / wkid 102100) as a default
+      // operational layer. The Esri3D_Buildings_v1 service is wkid 4326,
+      // which fails layerview creation against our WM-based topo basemap.
       layers: [
         (() => {
           const layer = new SceneLayer({
@@ -95,12 +96,12 @@ export function ArcgisSceneViewerPage() {
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
-      // Force WGS84 so the basemap's I3S sublayers (Buildings/Trees/Places)
-      // and our own 3D Buildings SceneLayer — all wkid 4326 — can
-      // create layerviews. Without this the view inherits the basemap's
-      // 102100 SR and rejects every 3D content layer.
+      // `viewingMode: 'global'` is enough — the SDK then reprojects Web
+      // Mercator basemap/elevation tiles onto the WGS84 globe. Setting
+      // `spatialReference: SpatialReference.WGS84` explicitly here makes the
+      // SDK strictly reject any non-WGS84 layer with
+      // `layerview:spatial-reference-incompatible`.
       viewingMode: 'global',
-      spatialReference: SpatialReference.WGS84,
       qualityProfile: 'high',
       environment: {
         lighting: {

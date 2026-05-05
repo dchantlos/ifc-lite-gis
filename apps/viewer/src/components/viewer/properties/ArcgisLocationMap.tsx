@@ -21,6 +21,7 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
+import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
 import SceneLayer from '@arcgis/core/layers/SceneLayer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
@@ -200,15 +201,16 @@ export function ArcgisLocationMap({
       // The global OSM 3D Buildings SceneLayer is intentionally omitted: its
       // world-wide extent triggers per-frame
       // `TerrainSurface.getSphereElevationRange` projection failures.
-      // See ArcgisSceneViewerPage for the full rationale: the Topographic
-      // 3D basemap's I3S sublayers (Buildings/Trees/Places) and any 3D
-      // Buildings SceneLayer we add are published in WGS84. Force the view
-      // to WGS84 so their layerviews can be created. Skip an explicit
-      // ground layer — the basemap supplies its own.
       const scene = new WebScene({
         basemap: new Basemap({
           portalItem: new PortalItem({ id: '0560e29930dc4d5ebeb58c635c0909c9' }),
         }),
+        ground: {
+          layers: [new ElevationLayer({
+            url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
+          })],
+        },
+        // OSM 3D Buildings (Web Mercator) to match the WM topo basemap.
         layers: [
           (() => {
             const layer = new SceneLayer({
@@ -227,10 +229,11 @@ export function ArcgisLocationMap({
       view = new SceneView({
         container: containerRef.current,
         map: scene,
-        // Force WGS84 so the basemap's I3S sublayers and the 3D Buildings
-        // SceneLayer (all wkid 4326) can create layerviews.
+        // `viewingMode: 'global'` is enough — setting an explicit
+        // `spatialReference: SpatialReference.WGS84` makes the SDK
+        // strictly reject Web Mercator tile/elevation layers with
+        // `layerview:spatial-reference-incompatible`.
         viewingMode: 'global',
-        spatialReference: SpatialReference.WGS84,
         qualityProfile: 'low',
         ui: { components: [] },
         environment: {
