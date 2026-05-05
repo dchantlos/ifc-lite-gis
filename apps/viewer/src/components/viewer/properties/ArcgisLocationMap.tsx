@@ -100,21 +100,64 @@ export function ArcgisLocationMap({
   }, [hasMapConversion, mapConversion, projectedCRS, coordinateInfo, lengthUnitScale, siteAnchor]);
 
   const openInSceneViewer = useCallback((): boolean => {
+    const meshes = geometryResult?.meshes;
+    if (!meshes || meshes.length === 0) return false;
     if (!anchorLatLon) return false;
-    // Open the curated WebScene directly in Esri's native arcgis.com
-    // Scene Viewer with a viewpoint centred on the IFC anchor. This
-    // avoids the in-app popup tab + GLB transfer entirely; the user
-    // can navigate to the IFC location in the official viewer and
-    // explore the basemap content (3D buildings, trees, labels).
-    const { lat, lon } = anchorLatLon;
-    const url = `https://www.arcgis.com/home/webscene/viewer.html?webscene=200b728276b34f6db53d787b98f20d14&center=${lon};${lat}`;
-    const win = window.open(url, '_blank');
+    let totalVerts = 0;
+    for (const m of meshes) totalVerts += (m.positions?.length ?? 0) / 3;
+    const HARD_LIMIT = 15_000_000;
+    if (totalVerts > HARD_LIMIT) {
+      alert(
+        `Model is too large to open in Scene Viewer (${(totalVerts / 1e6).toFixed(1)} M verts, limit ${(HARD_LIMIT / 1e6).toFixed(0)} M).\n\nThe browser cannot transfer a single GLB this large without crashing.`,
+      );
+      return false;
+    }
+    if (totalVerts > 5_000_000 && !confirm(
+      `This model has ${(totalVerts / 1e6).toFixed(1)} M vertices. Opening it in Scene Viewer may take a long time and use a lot of memory. Continue?`,
+    )) {
+      return false;
+    }
+
+    const glb = buildMergedGLB(meshes);
+    const buffer = (glb.byteOffset === 0 && glb.byteLength === glb.buffer.byteLength)
+      ? glb.buffer
+      : glb.slice().buffer;
+    let headingDeg = 0;
+    if (mapConversion) {
+      const theta = Math.atan2(
+        mapConversion.xAxisOrdinate ?? 0,
+        mapConversion.xAxisAbscissa ?? 1,
+      );
+      headingDeg = (theta * 180) / Math.PI;
+    }
+    const payload = {
+      glb: buffer,
+      lat: anchorLatLon.lat,
+      lon: anchorLatLon.lon,
+      orthogonalHeight: mapConversion?.orthogonalHeight ?? siteAnchor?.elevation ?? 0,
+      headingDeg,
+      scale: 1,
+      clampToGround: true,
+    };
+    const sceneViewerUrl = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/scene-viewer`;
+    // NOTE: do NOT pass 'noopener' (or any string containing it) here.
+    // window.open's 3rd arg is parsed for the keyword 'noopener'; if
+    // present, the browser strips window.opener in the new tab and
+    // the scene viewer can never receive the GLB via postMessage.
+    const win = window.open(sceneViewerUrl, '_blank');
     if (!win) {
       console.warn('[ArcgisLocationMap] popup blocked');
       return false;
     }
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.source !== win) return;
+      if (ev.data?.type !== 'ifc-lite:scene-viewer-ready') return;
+      win.postMessage({ type: 'ifc-lite:scene-payload', payload }, '*', [payload.glb]);
+      window.removeEventListener('message', onMessage);
+    };
+    window.addEventListener('message', onMessage);
     return true;
-  }, [anchorLatLon]);
+  }, [geometryResult, anchorLatLon, mapConversion, siteAnchor]);
 
   // ─── Effect 1: build the SceneView once. ────────────────────────────────
   useEffect(() => {
@@ -153,10 +196,18 @@ export function ArcgisLocationMap({
         map: scene,
         qualityProfile: 'low',
         ui: { components: [] },
-        // Don't pass `environment` — it would override the WebScene's
-        // saved lighting/atmosphere (which gives a daylit scene). The
-        // earlier override forced ambient-only lighting and made the
-        // minimap render almost pitch black.
+        // The saved WebScene has a nighttime datetime baked into its
+        // environment, which makes the minimap render very dark. Force
+        // a daylight noon-UTC sun and disable shadows for a bright,
+        // flat preview suitable for the small map.
+        environment: {
+          lighting: {
+            type: 'sun',
+            date: new Date('2026-06-21T12:00:00Z'),
+            directShadowsEnabled: false,
+          },
+          atmosphere: { quality: 'low' },
+        },
       });
       viewRef.current = view;
 
