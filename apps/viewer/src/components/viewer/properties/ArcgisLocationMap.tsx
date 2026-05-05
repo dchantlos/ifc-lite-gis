@@ -212,10 +212,17 @@ export function ArcgisLocationMap({
         },
         // Esri 3D Buildings as a default operational layer.
         layers: [
-          new SceneLayer({
-            url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Esri3D_Buildings_v1/SceneServer',
-            title: '3D Buildings',
-          }),
+          (() => {
+            const layer = new SceneLayer({
+              url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/Esri3D_Buildings_v1/SceneServer',
+              title: '3D Buildings',
+              visible: true,
+            });
+            layer.load().catch((err) => {
+              console.warn('[ArcgisLocationMap] 3D Buildings load failed', err);
+            });
+            return layer;
+          })(),
         ],
       });
 
