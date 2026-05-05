@@ -63,6 +63,12 @@ export function ArcgisSceneViewerPage() {
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
+      // Force the view into WGS84 so the basemap's I3S sublayers
+      // (Buildings, Trees, Places & Labels — all wkid 4326) can
+      // create their layerviews. The 102100 vector tile reference
+      // layer reprojects fine onto a WGS84 globe; the reverse is
+      // not true for I3S content.
+      spatialReference: SpatialReference.WGS84,
       qualityProfile: 'high',
       environment: {
         lighting: {

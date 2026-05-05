@@ -194,6 +194,10 @@ export function ArcgisLocationMap({
       view = new SceneView({
         container: containerRef.current,
         map: scene,
+        // Force WGS84 — see ArcgisSceneViewerPage for full rationale.
+        // The basemap's I3S sublayers (Buildings, Trees, Labels) are
+        // all wkid 4326 and would otherwise be rejected.
+        spatialReference: SpatialReference.WGS84,
         qualityProfile: 'low',
         ui: { components: [] },
         // The saved WebScene has a nighttime datetime baked into its
