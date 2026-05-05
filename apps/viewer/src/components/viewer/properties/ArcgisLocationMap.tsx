@@ -423,7 +423,11 @@ export function ArcgisLocationMap({
               clampToGround: true,
             };
             const sceneViewerUrl = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/scene-viewer`;
-            const win = window.open(sceneViewerUrl, '_blank', 'noopener=no');
+            // NOTE: do NOT pass 'noopener' (or any string containing it) here.
+            // window.open's 3rd arg is parsed for the keyword 'noopener'; if
+            // present, the browser strips window.opener in the new tab and
+            // the scene viewer can never receive the GLB via postMessage.
+            const win = window.open(sceneViewerUrl, '_blank');
             if (!win) {
               console.warn('[ArcgisLocationMap] popup blocked');
               return;
