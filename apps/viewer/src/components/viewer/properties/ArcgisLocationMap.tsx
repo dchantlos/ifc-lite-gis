@@ -21,9 +21,6 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
-import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
-import SceneLayer from '@arcgis/core/layers/SceneLayer';
-import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
 
 import { buildMergedGLB } from '@/lib/geo/buildMergedGLB';
@@ -195,45 +192,16 @@ export function ArcgisLocationMap({
     const initScene = () => {
       if (disposed || !containerRef.current) return;
 
-      // Default to the AGOL "Topographic" 3D basemap (item
-      // 0560e29930dc4d5ebeb58c635c0909c9). PortalItem load is anonymous.
-      //
-      // The global OSM 3D Buildings SceneLayer is intentionally omitted: its
-      // world-wide extent triggers per-frame
-      // `TerrainSurface.getSphereElevationRange` projection failures.
+      // Load the curated "IFClite Basemap" WebScene (portal item
+      // 200b728276b34f6db53d787b98f20d14): Topographic vector tiles +
+      // Esri3D_Buildings_v1 + Trees + Places & Labels + Terrain3D ground.
       const scene = new WebScene({
-        basemap: new Basemap({
-          portalItem: new PortalItem({ id: '0560e29930dc4d5ebeb58c635c0909c9' }),
-        }),
-        ground: {
-          layers: [new ElevationLayer({
-            url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
-          })],
-        },
-        // OSM 3D Buildings (Web Mercator) to match the WM topo basemap.
-        layers: [
-          (() => {
-            const layer = new SceneLayer({
-              url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/OpenStreetMap3D_Buildings_v1/SceneServer',
-              title: '3D Buildings',
-              visible: true,
-            });
-            layer.load().catch((err) => {
-              console.warn('[ArcgisLocationMap] 3D Buildings load failed', err);
-            });
-            return layer;
-          })(),
-        ],
+        portalItem: new PortalItem({ id: '200b728276b34f6db53d787b98f20d14' }),
       });
 
       view = new SceneView({
         container: containerRef.current,
         map: scene,
-        // `viewingMode: 'global'` is enough — setting an explicit
-        // `spatialReference: SpatialReference.WGS84` makes the SDK
-        // strictly reject Web Mercator tile/elevation layers with
-        // `layerview:spatial-reference-incompatible`.
-        viewingMode: 'global',
         qualityProfile: 'low',
         ui: { components: [] },
         environment: {

@@ -19,9 +19,6 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
-import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
-import SceneLayer from '@arcgis/core/layers/SceneLayer';
-import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
 import LayerList from '@arcgis/core/widgets/LayerList';
 import Expand from '@arcgis/core/widgets/Expand';
@@ -52,56 +49,18 @@ export function ArcgisSceneViewerPage() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Default to the AGOL "Topographic" 3D basemap
-    // (https://www.arcgis.com/home/item.html?id=0560e29930dc4d5ebeb58c635c0909c9).
-    // Loading via PortalItem keeps it anonymous (no API key required) and
-    // ships the proper 3D-styled vector tile content for global viewing mode.
-    //
-    // Note: we intentionally do NOT add the global OSM 3D Buildings SceneLayer
-    // here. Its world-wide extent makes the terrain `getSphereElevationRange`
-    // call fail every frame ("could not project given point to tiling scheme
-    // coordinate system"), spamming the console and stalling layerview setup.
+    // Load the curated "IFClite Basemap" WebScene by portal item id. This
+    // ships pre-configured Topographic vector tiles + Esri3D_Buildings_v1 +
+    // Trees + Places & Labels + Terrain3D ground, all in viewingMode: global
+    // (wkid 102100). Letting the SDK load the WebScene by item id mirrors
+    // exactly what arcgis.com Scene Viewer renders for the same id.
     const scene = new WebScene({
-      basemap: new Basemap({
-        portalItem: new PortalItem({ id: '0560e29930dc4d5ebeb58c635c0909c9' }),
-      }),
-      ground: {
-        layers: [new ElevationLayer({
-          url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
-        })],
-      },
-      // OSM 3D Buildings (Web Mercator / wkid 102100) as a default
-      // operational layer. The Esri3D_Buildings_v1 service is wkid 4326,
-      // which fails layerview creation against our WM-based topo basemap.
-      layers: [
-        (() => {
-          const layer = new SceneLayer({
-            url: 'https://basemaps3d.arcgis.com/arcgis/rest/services/OpenStreetMap3D_Buildings_v1/SceneServer',
-            title: '3D Buildings',
-            visible: true,
-          });
-          layer.load().then(() => {
-            console.info('[SceneViewerPage] 3D Buildings loaded', {
-              wkid: layer.spatialReference?.wkid,
-              fullExtent: layer.fullExtent,
-            });
-          }).catch((err) => {
-            console.warn('[SceneViewerPage] 3D Buildings load failed', err);
-          });
-          return layer;
-        })(),
-      ],
+      portalItem: new PortalItem({ id: '200b728276b34f6db53d787b98f20d14' }),
     });
 
     const view = new SceneView({
       container: containerRef.current,
       map: scene,
-      // `viewingMode: 'global'` is enough — the SDK then reprojects Web
-      // Mercator basemap/elevation tiles onto the WGS84 globe. Setting
-      // `spatialReference: SpatialReference.WGS84` explicitly here makes the
-      // SDK strictly reject any non-WGS84 layer with
-      // `layerview:spatial-reference-incompatible`.
-      viewingMode: 'global',
       qualityProfile: 'high',
       environment: {
         lighting: {
