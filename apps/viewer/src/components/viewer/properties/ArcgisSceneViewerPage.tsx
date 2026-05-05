@@ -18,6 +18,7 @@ import Graphic from '@arcgis/core/Graphic';
 import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
+import * as webMercatorUtils from '@arcgis/core/geometry/support/webMercatorUtils';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
 import Basemap from '@arcgis/core/Basemap';
 import PortalItem from '@arcgis/core/portal/PortalItem';
@@ -159,12 +160,24 @@ export function ArcgisSceneViewerPage() {
             `The IFC may not be georeferenced.`,
           );
         }
-        const anchor = new Point({
+        const anchorWGS84 = new Point({
           longitude: payload.lon,
           latitude: payload.lat,
           z: payload.orthogonalHeight ?? 0,
           spatialReference: SpatialReference.WGS84,
         });
+        // The view's SR comes from the basemap (e.g. topo-3d is Web
+        // Mercator / wkid 102100). Mesh geometry does NOT auto-reproject,
+        // so a WGS84 mesh is silently rejected with "incompatible spatial
+        // reference and will not render". Match the view's SR up front.
+        const viewSR = view.spatialReference ?? SpatialReference.WGS84;
+        const anchor = viewSR.isWebMercator
+          ? (webMercatorUtils.geographicToWebMercator(anchorWGS84) as Point)
+          : anchorWGS84;
+        // geographicToWebMercator drops the z; restore it.
+        if (viewSR.isWebMercator) {
+          anchor.z = anchorWGS84.z;
+        }
 
         const blob = new Blob([payload.glb], { type: 'model/gltf-binary' });
         blobUrl = URL.createObjectURL(blob);
