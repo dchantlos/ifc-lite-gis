@@ -21,6 +21,8 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
+import Basemap from '@arcgis/core/Basemap';
+import PortalItem from '@arcgis/core/portal/PortalItem';
 
 import { buildMergedGLB } from '@/lib/geo/buildMergedGLB';
 import { reprojectToLatLon } from '@/lib/geo/reproject';
@@ -123,15 +125,16 @@ export function ArcgisLocationMap({
     const initScene = () => {
       if (disposed || !containerRef.current) return;
 
-      // Use the anonymous OpenStreetMap basemap. v2 3D styles like
-      // `topo-3d` require an ArcGIS API key in @arcgis/core v5+; without
-      // one, tile requests 401 and the SceneView never finishes init.
+      // Default to the AGOL "Topographic" 3D basemap (item
+      // 0560e29930dc4d5ebeb58c635c0909c9). PortalItem load is anonymous.
       //
       // The global OSM 3D Buildings SceneLayer is intentionally omitted: its
       // world-wide extent triggers per-frame
       // `TerrainSurface.getSphereElevationRange` projection failures.
       const scene = new WebScene({
-        basemap: 'osm',
+        basemap: new Basemap({
+          portalItem: new PortalItem({ id: '0560e29930dc4d5ebeb58c635c0909c9' }),
+        }),
         ground: {
           layers: [new ElevationLayer({
             url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',

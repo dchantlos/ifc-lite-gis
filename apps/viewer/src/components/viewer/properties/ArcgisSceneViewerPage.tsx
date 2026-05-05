@@ -19,6 +19,8 @@ import Point from '@arcgis/core/geometry/Point';
 import Mesh from '@arcgis/core/geometry/Mesh';
 import SpatialReference from '@arcgis/core/geometry/SpatialReference';
 import ElevationLayer from '@arcgis/core/layers/ElevationLayer';
+import Basemap from '@arcgis/core/Basemap';
+import PortalItem from '@arcgis/core/portal/PortalItem';
 import LayerList from '@arcgis/core/widgets/LayerList';
 import Expand from '@arcgis/core/widgets/Expand';
 import Daylight from '@arcgis/core/widgets/Daylight';
@@ -48,18 +50,19 @@ export function ArcgisSceneViewerPage() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Use the anonymous OpenStreetMap basemap. The 3D-native styles like
-    // `topo-3d` are v2 basemap styles that require an ArcGIS API key in
-    // @arcgis/core v5+ — without a key, tile requests 401 and SceneView
-    // can't bring up a working layerview pipeline, which also blocks the
-    // IFC mesh graphic from rendering.
+    // Default to the AGOL "Topographic" 3D basemap
+    // (https://www.arcgis.com/home/item.html?id=0560e29930dc4d5ebeb58c635c0909c9).
+    // Loading via PortalItem keeps it anonymous (no API key required) and
+    // ships the proper 3D-styled vector tile content for global viewing mode.
     //
     // Note: we intentionally do NOT add the global OSM 3D Buildings SceneLayer
     // here. Its world-wide extent makes the terrain `getSphereElevationRange`
     // call fail every frame ("could not project given point to tiling scheme
     // coordinate system"), spamming the console and stalling layerview setup.
     const scene = new WebScene({
-      basemap: 'osm',
+      basemap: new Basemap({
+        portalItem: new PortalItem({ id: '0560e29930dc4d5ebeb58c635c0909c9' }),
+      }),
       ground: {
         layers: [new ElevationLayer({
           url: 'https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer',
