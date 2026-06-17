@@ -20,6 +20,7 @@ import { useDuplicateShortcut } from './useDuplicateShortcut';
 import { HoverTooltip } from './HoverTooltip';
 import { BCFPanel } from './BCFPanel';
 import { IDSPanel } from './IDSPanel';
+import { ValidationPanel } from './ValidationPanel';
 import { LensPanel } from './LensPanel';
 import { ListPanel } from './lists/ListPanel';
 import { ScriptPanel } from './ScriptPanel';
@@ -94,6 +95,8 @@ export function ViewerLayout() {
   const setScriptPanelVisible = useViewerStore((s) => s.setScriptPanelVisible);
   const ganttPanelVisible = useViewerStore((s) => s.ganttPanelVisible);
   const setGanttPanelVisible = useViewerStore((s) => s.setGanttPanelVisible);
+  const validationPanelVisible = useViewerStore((s) => s.validationPanelVisible);
+  const setValidationPanelVisible = useViewerStore((s) => s.setValidationPanelVisible);
   const analysisExtensionState = useSyncExternalStore(
     subscribeAnalysisExtensions,
     getAnalysisExtensionsSnapshot,
@@ -269,6 +272,8 @@ export function ViewerLayout() {
                       activeRightAnalysisExtension.renderPanel({ onClose: closeActiveAnalysisExtension })
                     ) : activeTool === 'addElement' ? (
                       <AddElementPanel onClose={() => setActiveTool('select')} />
+                    ) : validationPanelVisible ? (
+                      <ValidationPanel onClose={() => setValidationPanelVisible(false)} />
                     ) : lensPanelVisible ? (
                       <LensPanel onClose={() => setLensPanelVisible(false)} />
                     ) : idsPanelVisible ? (

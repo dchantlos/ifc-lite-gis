@@ -41,6 +41,7 @@ import { createSearchSlice, type SearchSlice } from './slices/searchSlice.js';
 import { createAnnotationsSlice, type AnnotationsSlice } from './slices/annotationsSlice.js';
 import { createAddElementSlice, type AddElementSlice } from './slices/addElementSlice.js';
 import { createPointCloudSlice, type PointCloudSlice, POINT_CLOUD_DEFAULTS } from './slices/pointCloudSlice.js';
+import { createValidationSlice, type ValidationSlice } from './slices/validationSlice.js';
 import { invalidateVisibleBasketCache } from './basketVisibleSet.js';
 
 // Import constants for reset function
@@ -136,7 +137,7 @@ export type ViewerState = LoadingSlice &
   AddElementSlice &
   PointCloudSlice & {
     resetViewerState: () => void;
-  };
+  } & ValidationSlice;
 
 /**
  * Main viewer store combining all slices
@@ -172,6 +173,7 @@ const createViewerStore = () => create<ViewerState>()((...args) => ({
   ...createAnnotationsSlice(...args),
   ...createAddElementSlice(...args),
   ...createPointCloudSlice(...args),
+  ...createValidationSlice(...args),
 
   // Reset all viewer state when loading new file
   // Note: Does NOT clear models - use clearAllModels() for that

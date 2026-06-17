@@ -312,6 +312,8 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
   const setBcfPanelVisible = useViewerStore((state) => state.setBcfPanelVisible);
   const idsPanelVisible = useViewerStore((state) => state.idsPanelVisible);
   const setIdsPanelVisible = useViewerStore((state) => state.setIdsPanelVisible);
+  const validationPanelVisible = useViewerStore((state) => state.validationPanelVisible);
+  const setValidationPanelVisible = useViewerStore((state) => state.setValidationPanelVisible);
   const listPanelVisible = useViewerStore((state) => state.listPanelVisible);
   const setListPanelVisible = useViewerStore((state) => state.setListPanelVisible);
   const setRightPanelCollapsed = useViewerStore((state) => state.setRightPanelCollapsed);
@@ -560,7 +562,7 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     setScriptPanelVisible,
   ]);
 
-  const handleToggleRightPanel = useCallback((panel: 'bcf' | 'ids' | 'lens') => {
+  const handleToggleRightPanel = useCallback((panel: 'bcf' | 'ids' | 'lens' | 'validation') => {
     if (activeAnalysisExtension?.placement !== 'bottom') {
       closeActiveAnalysisExtension();
     }
@@ -574,12 +576,14 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     const nextBcfVisible = panel === 'bcf' ? !bcfPanelVisible : false;
     const nextIdsVisible = panel === 'ids' ? !idsPanelVisible : false;
     const nextLensVisible = panel === 'lens' ? !lensPanelVisible : false;
+    const nextValidationVisible = panel === 'validation' ? !validationPanelVisible : false;
 
     setBcfPanelVisible(nextBcfVisible);
     setIdsPanelVisible(nextIdsVisible);
     setLensPanelVisible(nextLensVisible);
+    setValidationPanelVisible(nextValidationVisible);
 
-    if (nextBcfVisible || nextIdsVisible || nextLensVisible) {
+    if (nextBcfVisible || nextIdsVisible || nextLensVisible || nextValidationVisible) {
       setRightPanelCollapsed(false);
     }
   }, [
@@ -587,10 +591,12 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     bcfPanelVisible,
     idsPanelVisible,
     lensPanelVisible,
+    validationPanelVisible,
     requireDesktopFeature,
     setBcfPanelVisible,
     setIdsPanelVisible,
     setLensPanelVisible,
+    setValidationPanelVisible,
     setRightPanelCollapsed,
   ]);
 
@@ -621,6 +627,7 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     setBcfPanelVisible(false);
     setIdsPanelVisible(false);
     setLensPanelVisible(false);
+    setValidationPanelVisible(false);
     setRightPanelCollapsed(false);
   }, [
     analysisExtensionState.activeId,
@@ -632,6 +639,7 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     setListPanelVisible,
     setRightPanelCollapsed,
     setScriptPanelVisible,
+    setValidationPanelVisible,
   ]);
 
   const activeWorkspacePanels = useMemo(() => {
@@ -642,6 +650,7 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     if (bcfPanelVisible) panels.add('bcf');
     if (idsPanelVisible) panels.add('ids');
     if (lensPanelVisible) panels.add('lens');
+    if (validationPanelVisible) panels.add('validation');
     if (analysisExtensionState.activeId) panels.add(analysisExtensionState.activeId);
     return panels;
   }, [
@@ -652,6 +661,7 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     lensPanelVisible,
     listPanelVisible,
     scriptPanelVisible,
+    validationPanelVisible,
   ]);
 
   const workspacePanelLabel = useMemo(() => {
@@ -662,6 +672,7 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
     if (activeWorkspacePanels.has('gantt')) return 'Schedule';
     if (activeWorkspacePanels.has('bcf')) return 'BCF Issues';
     if (activeWorkspacePanels.has('ids')) return 'IDS Validation';
+    if (activeWorkspacePanels.has('validation')) return 'Validation';
     if (activeWorkspacePanels.has('lens')) return 'Lens Rules';
     return activeAnalysisExtension?.label ?? 'Analysis';
   }, [activeAnalysisExtension?.label, activeWorkspacePanels]);
@@ -1010,6 +1021,13 @@ export function MainToolbar({ onShowShortcuts }: MainToolbarProps = {} as MainTo
           >
             <ClipboardCheck className="h-4 w-4 mr-2" />
             IDS Validation
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={activeWorkspacePanels.has('validation')}
+            onCheckedChange={() => handleToggleRightPanel('validation')}
+          >
+            <ClipboardCheck className="h-4 w-4 mr-2" />
+            Validation (IFC quality)
           </DropdownMenuCheckboxItem>
           <DropdownMenuCheckboxItem
             checked={activeWorkspacePanels.has('lens')}
